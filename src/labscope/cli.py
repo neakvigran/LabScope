@@ -5,6 +5,7 @@ import ipaddress
 import json
 from pathlib import Path
 
+from labscope.compare import compare_results
 from labscope.scanner import run_nmap
 
 
@@ -50,7 +51,10 @@ def load_scope(path: Path) -> tuple[list[str], list[int]]:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="labscope",
-        description="Scoped reconnaissance for explicitly authorized lab targets.",
+        description=(
+            "Scoped reconnaissance and change detection "
+            "for explicitly authorized lab targets."
+        ),
     )
     parser.add_argument(
         "--version",
@@ -83,7 +87,51 @@ def main() -> None:
         help="New directory for scan evidence; required for real scans.",
     )
 
+    compare = commands.add_parser(
+        "compare",
+        help="Compare port states in two saved JSON snapshots.",
+    )
+    compare.add_argument(
+        "before",
+        type=Path,
+        help="Earlier results.json file.",
+    )
+    compare.add_argument(
+        "after",
+        type=Path,
+        help="Later results.json file.",
+    )
+
     args = parser.parse_args()
+
+    if args.command == "compare":
+        try:
+            before = json.loads(args.before.read_text(encoding="utf-8"))
+            after = json.loads(args.after.read_text(encoding="utf-8"))
+            changes = compare_results(before, after)
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+        ) as error:
+            parser.error(str(error))
+
+        if not changes:
+            print("No port-state changes detected.")
+            return
+
+        print(f"Port-state changes: {len(changes)}")
+
+        for change in changes:
+            print(
+                f"{change['address']} "
+                f"{change['protocol']}/{change['port']}: "
+                f"{change['before']} -> {change['after']}"
+            )
+
+        return
 
     try:
         allowed, ports = load_scope(args.scope)
@@ -119,6 +167,7 @@ def main() -> None:
         parser.error(str(error))
 
     print(f"Scan complete. XML evidence: {xml_path}")
+    print(f"Structured results: {args.output / 'results.json'}")
 
 
 if __name__ == "__main__":
