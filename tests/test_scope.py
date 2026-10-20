@@ -92,6 +92,19 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(stderr)
         self.assertEqual(stdout, "")
 
+    def test_out_of_scope_never_calls_scanner(self):
+        with patch("labscope.cli.run_nmap") as scanner:
+            code, stdout, stderr = self.run_cli(
+                "scan",
+                "--scope", str(self.scope_path),
+                "--target", "192.0.2.10",
+                "--output", str(self.scope_path.parent / "results"),
+            )
+
+        self.assertEqual(code, 2)
+        self.assertIn("Out-of-scope", stderr)
+        self.assertEqual(stdout, "")
+        scanner.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

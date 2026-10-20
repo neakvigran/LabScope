@@ -1,4 +1,4 @@
 {
   "allowed_targets": ["127.0.0.1"],
-  "ports": [3000]
+  "ports": [8002]
 }
