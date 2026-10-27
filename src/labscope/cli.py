@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 
 from labscope.compare import compare_results
-from labscope.scanner import run_nmap
 from labscope.report import write_report
+from labscope.scanner import run_nmap
+from labscope.web import inspect_http, validate_url
+
 
 def ipv4(value: str) -> str:
     """Validate an IPv4 address and return its standard representation."""
@@ -64,7 +66,10 @@ def main() -> None:
 
     commands = parser.add_subparsers(dest="command", required=True)
 
-    scan = commands.add_parser("scan", help="Prepare or run a scoped scan.")
+    scan = commands.add_parser(
+        "scan",
+        help="Prepare or run a scoped scan.",
+    )
     scan.add_argument(
         "--scope",
         type=Path,
@@ -107,15 +112,69 @@ def main() -> None:
         help="Save a Markdown report to a new file.",
     )
 
+    web = commands.add_parser(
+        "web",
+        help="Collect HTTP metadata from an approved endpoint.",
+    )
+    web.add_argument(
+        "--scope",
+        type=Path,
+        required=True,
+        help="Path to the JSON scope file.",
+    )
+    web.add_argument(
+        "--url",
+        required=True,
+        help="HTTP or HTTPS URL containing an authorized IPv4 address.",
+    )
+    web.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="New JSON file for HTTP evidence.",
+    )
+
     args = parser.parse_args()
+
+    if args.command == "web":
+        try:
+            allowed, ports = load_scope(args.scope)
+
+            # Reject invalid destinations before creating output or connecting.
+            validate_url(args.url, allowed, ports)
+
+            if args.output.exists():
+                raise FileExistsError(
+                    f"Output already exists: {args.output}. "
+                    "Choose a new filename."
+                )
+
+            result = inspect_http(args.url, allowed, ports)
+            content = json.dumps(result, indent=2) + "\n"
+
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+
+            # Exclusive creation also protects against concurrent writers.
+            with args.output.open("x", encoding="utf-8") as evidence:
+                evidence.write(content)
+
+        except (OSError, ValueError, RuntimeError) as error:
+            parser.error(str(error))
+
+        print(f"HTTP status: {result['status']} {result['reason']}")
+        print(f"Title: {result['title'] or '(not found)'}")
+        print(f"HTTP evidence saved: {args.output}")
+        return
 
     if args.command == "compare":
         try:
             before = json.loads(args.before.read_text(encoding="utf-8"))
             after = json.loads(args.after.read_text(encoding="utf-8"))
             changes = compare_results(before, after)
+
             if args.report is not None:
                 write_report(args.before, args.after, args.report)
+
         except (
             OSError,
             ValueError,
@@ -124,8 +183,10 @@ def main() -> None:
             AttributeError,
         ) as error:
             parser.error(str(error))
+
         if args.report is not None:
             print(f"Markdown report saved: {args.report}")
+
         if not changes:
             print("No port-state changes detected.")
             return
@@ -180,4 +241,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
