@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install LabScope
+        run: python -m pip install -e .
+
+      - name: Run automated tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check CLI and scope planning
+        run: |
+          labscope --help
+          labscope scan --scope examples/scope.json --dry-run
+
+      - name: Run offline comparison demo
+        run: |
+          labscope compare examples/demo/before.json examples/demo/after.json
