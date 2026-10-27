@@ -9,3 +9,5 @@ dist/
 .env
 scope.local.yml
 runs/
+
+reports/

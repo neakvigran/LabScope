@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "scanner": {
+    "name": "nmap",
+    "version": "7.99"
+  },
+  "started_at_unix": "1792467234",
+  "finished_at_unix": "1792467234",
+  "scan_coverage": [
+    {
+      "type": "connect",
+      "protocol": "tcp",
+      "numservices": "1",
+      "services": "8002"
+    }
+  ],
+  "hosts": [
+    {
+      "address": "127.0.0.1",
+      "status": "up",
+      "ports": [
+        {
+          "protocol": "tcp",
+          "port": 8002,
+          "state": "open",
+          "reason": "syn-ack",
+          "service": {
+            "name": "teradataordbms",
+            "method": "table",
+            "conf": "3"
+          }
+        }
+      ],
+      "port_summaries": []
+    }
+  ]
+}
